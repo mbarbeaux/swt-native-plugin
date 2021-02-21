@@ -1,0 +1,54 @@
+name: build
+
+on:
+  push:
+    branches:
+      - master
+      - develop
+      - 'feature/**'
+      - 'release/**'
+      - 'hotfix/**'
+  pull_request:
+    branches:
+      - master
+      - develop
+      - 'feature/**'
+      - 'release/**'
+      - 'hotfix/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+
+      - name: install-graalvm
+        uses: DeLaGuardo/setup-graalvm@master
+        with:
+          graalvm-version: '21.0.0.2.java11'
+
+      - name: install-native-image
+        run: gu install native-image
+
+      - name: cache-maven-repository
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      - name: verify
+        run: ./mvnw --batch-mode --update-snapshots clean verify
+
+      - name: prepare-staging
+        run: |
+          mkdir staging
+          cp -r target/swt-native-plugin-*.jar staging
+
+      - name: upload-package
+        uses: actions/upload-artifact@v2
+        with:
+          name: Package
+          path: staging
